@@ -1,0 +1,7 @@
+[config]
+
+#Enter your token here
+token = "YourToken"
+
+#Choose your command to trigger the bot. Use "@" for mention
+command = "@"
