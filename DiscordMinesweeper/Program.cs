@@ -72,8 +72,9 @@ namespace DiscordMinesweeper
             {
                 try
                 {
-                    mention = "<@" + _client.CurrentUser.Id.ToString() + ">";
+                    mention = "<@!" + _client.CurrentUser.Id.ToString() + ">";
                 }
+
                 catch (Exception e)
                 {
                     Console.Error.WriteLine("Error: Could not get the user id");
