@@ -1,6 +1,8 @@
 ﻿using Discord;
+using Discord.Net;
 using Discord.WebSocket;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace DiscordMinesweeper
@@ -9,7 +11,6 @@ namespace DiscordMinesweeper
     class Program
     {
         private readonly DiscordSocketClient _client;
-        string mention;
         readonly config myConf;
 
         // Discord.Net heavily utilizes TAP for async, so we create
@@ -42,7 +43,7 @@ namespace DiscordMinesweeper
             myConf = ConfigGetter.GetConfigFromTOML(fname);
             _client.Log += LogAsync;
             _client.Ready += ReadyAsync;
-            _client.MessageReceived += MessageReceivedAsync;
+            _client.SlashCommandExecuted += SlashCommandHandler;
         }
 
         public async Task MainAsync()
@@ -64,40 +65,42 @@ namespace DiscordMinesweeper
 
         // The Ready event indicates that the client has opened a
         // connection and it is now safe to access the cache.
-        private Task ReadyAsync()
+        private async Task ReadyAsync()
         {
             Console.WriteLine($"{_client.CurrentUser} is connected!");
 
-            if (myConf.command == "@")
-            {
+            var existing_commands = await _client.GetGlobalApplicationCommandsAsync();
+
+            if (!existing_commands.Any(x => x.Name == "minesweeper")) {
+                Console.WriteLine("slashCommand is not registered ! Registering now");
+                var minesweeperCommand = new SlashCommandBuilder();
+                minesweeperCommand.WithName("minesweeper");
+                minesweeperCommand.WithDescription("Generate a minesweeper field in this channel !");
                 try
                 {
-                    mention = "<@" + _client.CurrentUser.Id.ToString() + ">";
+                    // With global commands we don't need the guild.
+                    await _client.CreateGlobalApplicationCommandAsync(minesweeperCommand.Build());
+                    // Using the ready event is a simple implementation for the sake of the example. Suitable for testing and development.
+                    // For a production bot, it is recommended to only run the CreateGlobalApplicationCommandAsync() once for each command.
                 }
-                catch (Exception e)
+                catch (ApplicationCommandException)
                 {
-                    Console.Error.WriteLine("Error: Could not get the user id");
-                    throw e;
+                    Console.Error.WriteLine("Error: Could not register the slash command");
+
+                    // You can send this error somewhere or just print it to the console, for this example we're just going to print it.
+                    throw;
                 }
-            }
-            else
+            } else
             {
-                mention = myConf.command;
+                Console.WriteLine("slashCommand is already registered, skipping");
             }
-            return Task.CompletedTask;
+            return;
         }
 
-        // This is not the recommended way to write a bot - consider
-        // reading over the Commands Framework sample.
-        private async Task MessageReceivedAsync(SocketMessage message)
+        private async Task SlashCommandHandler(SocketSlashCommand command)
         {
-            // The bot should never respond to itself.
-            if (message.Author.Id == _client.CurrentUser.Id)
-                return;
-
-            if (message.Content == mention)
-                await message.Channel.SendMessageAsync(MapGenerator.GenerateMap(9, 9, 10).ToDiscordEmoji());
-
+            if (command.Data.Name != "minesweeper") return;
+            await command.RespondAsync(MapGenerator.GenerateMap(9, 9, 10).ToDiscordEmoji());
         }
     }
 }
